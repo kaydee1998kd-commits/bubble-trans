@@ -48,13 +48,33 @@ static CGFloat BTBubbleSize = 58.0;
 	return [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:BTTargetBundleIdentifier];
 }
 
+- (UIWindowScene *)activeWindowScene {
+	for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+		if (![scene isKindOfClass:UIWindowScene.class]) {
+			continue;
+		}
+		if (scene.activationState == UISceneActivationStateForegroundActive || scene.activationState == UISceneActivationStateForegroundInactive) {
+			return (UIWindowScene *)scene;
+		}
+	}
+
+	for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+		if ([scene isKindOfClass:UIWindowScene.class]) {
+			return (UIWindowScene *)scene;
+		}
+	}
+
+	return nil;
+}
+
 - (UIWindow *)hostWindow {
-	for (UIWindow *window in UIApplication.sharedApplication.windows) {
+	UIWindowScene *scene = [self activeWindowScene];
+	for (UIWindow *window in scene.windows) {
 		if (window.isKeyWindow) {
 			return window;
 		}
 	}
-	return UIApplication.sharedApplication.windows.firstObject;
+	return scene.windows.firstObject;
 }
 
 - (void)appBecameActive {
@@ -68,7 +88,13 @@ static CGFloat BTBubbleSize = 58.0;
 	CGRect screenBounds = UIScreen.mainScreen.bounds;
 	CGRect frame = CGRectMake(CGRectGetWidth(screenBounds) - BTBubbleSize - 16.0, CGRectGetHeight(screenBounds) * 0.42, BTBubbleSize, BTBubbleSize);
 
-	self.bubbleWindow = [[UIWindow alloc] initWithFrame:frame];
+	UIWindowScene *scene = [self activeWindowScene];
+	if (scene) {
+		self.bubbleWindow = [[UIWindow alloc] initWithWindowScene:scene];
+		self.bubbleWindow.frame = frame;
+	} else {
+		self.bubbleWindow = [[UIWindow alloc] initWithFrame:frame];
+	}
 	self.bubbleWindow.backgroundColor = UIColor.clearColor;
 	self.bubbleWindow.windowLevel = UIWindowLevelAlert + 100.0;
 	self.bubbleWindow.hidden = NO;
@@ -331,7 +357,13 @@ static CGFloat BTBubbleSize = 58.0;
 	CGFloat height = MIN(CGRectGetHeight(screenBounds) * 0.58, 420.0);
 	CGRect frame = CGRectMake((CGRectGetWidth(screenBounds) - width) / 2.0, 72.0, width, height);
 
-	self.panelWindow = [[UIWindow alloc] initWithFrame:screenBounds];
+	UIWindowScene *scene = [self activeWindowScene];
+	if (scene) {
+		self.panelWindow = [[UIWindow alloc] initWithWindowScene:scene];
+		self.panelWindow.frame = screenBounds;
+	} else {
+		self.panelWindow = [[UIWindow alloc] initWithFrame:screenBounds];
+	}
 	self.panelWindow.backgroundColor = UIColor.clearColor;
 	self.panelWindow.windowLevel = UIWindowLevelAlert + 90.0;
 	self.panelWindow.hidden = YES;
@@ -447,4 +479,3 @@ static CGFloat BTBubbleSize = 58.0;
 		}
 	}
 }
-

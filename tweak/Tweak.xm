@@ -20,7 +20,9 @@
 @property (nonatomic, assign) BOOL busy;
 @end
 
-static NSString *BTTargetBundleIdentifier = @"com.taobao.idlefish";
+static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
+	return @[@"com.taobao.fleamarket", @"com.taobao.idlefish"];
+}
 static CGFloat BTBubbleSize = 58.0;
 
 @implementation BTTranslatorOverlay
@@ -45,7 +47,7 @@ static CGFloat BTBubbleSize = 58.0;
 }
 
 - (BOOL)isInsideXianyu {
-	return [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:BTTargetBundleIdentifier];
+	return [BTTargetBundleIdentifiers() containsObject:[[NSBundle mainBundle] bundleIdentifier]];
 }
 
 - (UIWindowScene *)activeWindowScene {
@@ -472,7 +474,7 @@ static CGFloat BTBubbleSize = 58.0;
 
 %ctor {
 	@autoreleasepool {
-		if ([[[NSBundle mainBundle] bundleIdentifier] isEqualToString:BTTargetBundleIdentifier]) {
+		if ([BTTargetBundleIdentifiers() containsObject:[[NSBundle mainBundle] bundleIdentifier]]) {
 			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 				[[BTTranslatorOverlay sharedOverlay] start];
 			});

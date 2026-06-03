@@ -5,6 +5,7 @@ BubbleTrans is the real floating-bubble version for jailbroken devices.
 It injects only into Xianyu:
 
 ```text
+com.taobao.fleamarket
 com.taobao.idlefish
 ```
 

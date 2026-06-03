@@ -1,8 +1,8 @@
 {
 	Filter = {
 		Bundles = (
+			"com.taobao.fleamarket",
 			"com.taobao.idlefish"
 		);
 	};
 }
-

@@ -1,10 +1,9 @@
 Package: com.codex.bubbletrans
 Name: BubbleTrans for Xianyu
-Version: 0.1.0
+Version: 0.1.1
 Architecture: iphoneos-arm
 Description: Floating OCR translator bubble for Xianyu.
 Maintainer: Codex
 Author: Codex
 Section: Tweaks
 Depends: mobilesubstrate | ellekit, firmware (>= 15.0)
-

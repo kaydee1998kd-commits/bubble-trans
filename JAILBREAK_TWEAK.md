@@ -9,7 +9,7 @@ com.taobao.fleamarket
 com.taobao.idlefish
 ```
 
-When Xianyu opens, a draggable `译` bubble appears. Tap it to capture the visible Xianyu screen, run Apple Vision OCR locally, translate Chinese text to English with MyMemory, and show the result in a draggable panel.
+When Xianyu opens, a draggable `EN` bubble appears. Tap it to capture the visible Xianyu screen, run Apple Vision OCR locally, translate detected Chinese text to English, and place English labels directly over the Chinese text positions.
 
 ## Install
 
@@ -37,5 +37,7 @@ killall SpringBoard
 ## Notes
 
 - The tweak sends recognized text to MyMemory for translation.
+- Version `0.2.0` tries Google's public translation endpoint first, then falls back to MyMemory.
+- It overlays OCR lines, not true private Xianyu text nodes, so scrolling the page after translation requires tapping `EN` again.
 - If Xianyu changes its bundle identifier, update `tweak/BubbleTrans.plist`.
 - This is independent from the TrollStore IPA. TrollStore installs apps; this tweak must be installed by the jailbreak package manager.

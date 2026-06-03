@@ -21,6 +21,8 @@ Use the `.deb` package from the GitHub Actions artifact or the `release/` folder
 Direct repository paths:
 
 ```text
+release/BubbleTrans-rootless-0.1.1.deb
+release/BubbleTrans-rootful-0.1.1.deb
 release/BubbleTrans-rootless.deb
 release/BubbleTrans-rootful.deb
 ```

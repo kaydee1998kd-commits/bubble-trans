@@ -57,6 +57,8 @@ release/XiBubble.ipa
 The jailbreak tweak packages are kept at:
 
 ```text
+release/BubbleTrans-rootless-0.1.1.deb
+release/BubbleTrans-rootful-0.1.1.deb
 release/BubbleTrans-rootless.deb
 release/BubbleTrans-rootful.deb
 ```

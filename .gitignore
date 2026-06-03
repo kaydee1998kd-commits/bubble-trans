@@ -1,7 +1,9 @@
 build/
 dist/
 artifact/
+deb-artifact/
 DerivedData/
+BubbleTrans-debs.zip
 XiBubble-ipa.zip
 *.xcuserstate
 xcuserdata/

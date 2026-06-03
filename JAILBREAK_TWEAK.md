@@ -17,6 +17,13 @@ Use the `.deb` package from the GitHub Actions artifact or the `release/` folder
 - `BubbleTrans-rootless.deb` for rootless jailbreaks such as modern palera1n rootless setups.
 - `BubbleTrans-rootful.deb` for older/rootful jailbreak setups.
 
+Direct repository paths:
+
+```text
+release/BubbleTrans-rootless.deb
+release/BubbleTrans-rootful.deb
+```
+
 Install with Sileo, Zebra, Filza, or:
 
 ```sh
@@ -29,4 +36,3 @@ killall SpringBoard
 - The tweak sends recognized text to MyMemory for translation.
 - If Xianyu changes its bundle identifier, update `tweak/BubbleTrans.plist`.
 - This is independent from the TrollStore IPA. TrollStore installs apps; this tweak must be installed by the jailbreak package manager.
-

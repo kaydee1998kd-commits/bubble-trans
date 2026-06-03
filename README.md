@@ -53,3 +53,10 @@ This repository also keeps the latest generated IPA at:
 ```text
 release/XiBubble.ipa
 ```
+
+The jailbreak tweak packages are kept at:
+
+```text
+release/BubbleTrans-rootless.deb
+release/BubbleTrans-rootful.deb
+```

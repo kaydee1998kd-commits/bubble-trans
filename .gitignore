@@ -1,7 +1,8 @@
 build/
 dist/
+artifact/
 DerivedData/
+XiBubble-ipa.zip
 *.xcuserstate
 xcuserdata/
 .DS_Store
-

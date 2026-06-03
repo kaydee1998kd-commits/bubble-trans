@@ -45,3 +45,9 @@ dist/XiBubble.ipa
 ```
 
 If you do not have a Mac, push this folder to a GitHub repository and run the included **Build XiBubble IPA** workflow from the Actions tab. The finished IPA is uploaded as a workflow artifact.
+
+This repository also keeps the latest generated IPA at:
+
+```text
+release/XiBubble.ipa
+```

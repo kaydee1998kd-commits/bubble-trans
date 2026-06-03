@@ -23,14 +23,16 @@ jobs:
 
       - name: Build rootless deb
         run: |
+          rm -rf release tweak/packages
           make -C tweak clean package THEOS_PACKAGE_SCHEME=rootless FINALPACKAGE=1
           mkdir -p release
-          cp tweak/packages/*.deb release/BubbleTrans-rootless.deb
+          cp tweak/packages/*iphoneos-arm64.deb release/BubbleTrans-rootless.deb
 
       - name: Build rootful deb
         run: |
+          rm -f tweak/packages/*.deb
           make -C tweak clean package FINALPACKAGE=1
-          cp tweak/packages/*.deb release/BubbleTrans-rootful.deb
+          cp tweak/packages/*iphoneos-arm.deb release/BubbleTrans-rootful.deb
 
       - name: Upload debs
         uses: actions/upload-artifact@v4
@@ -39,4 +41,3 @@ jobs:
           path: |
             release/BubbleTrans-rootless.deb
             release/BubbleTrans-rootful.deb
-

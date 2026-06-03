@@ -2,6 +2,7 @@ build/
 dist/
 artifact/
 deb-artifact/
+deb-check/
 DerivedData/
 BubbleTrans-debs.zip
 XiBubble-ipa.zip

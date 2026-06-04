@@ -39,7 +39,8 @@ killall SpringBoard
 ## Notes
 
 - The tweak sends recognized text to MyMemory for translation.
-- Version `0.2.0` tries Google's public translation endpoint first, then falls back to MyMemory.
+- Version `0.2.1` tries Google's public translation endpoint first, batches translations for speed, then falls back to MyMemory.
+- Inline labels are intentionally compact and truncated so Xianyu remains readable behind them.
 - It overlays OCR lines, not true private Xianyu text nodes, so scrolling the page after translation requires tapping `EN` again.
 - If Xianyu changes its bundle identifier, update `tweak/BubbleTrans.plist`.
 - This is independent from the TrollStore IPA. TrollStore installs apps; this tweak must be installed by the jailbreak package manager.

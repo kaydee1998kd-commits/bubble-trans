@@ -5,7 +5,8 @@
 #import <ImageIO/ImageIO.h>
 
 static CGFloat BTBubbleSize = 58.0;
-static NSUInteger BTMaxOverlayItems = 36;
+static NSUInteger BTMaxOverlayItems = 18;
+static NSUInteger BTTranslationBatchSize = 6;
 
 static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 	return @[@"com.taobao.fleamarket", @"com.taobao.idlefish"];
@@ -282,8 +283,9 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 			dispatch_async(dispatch_get_main_queue(), ^{ completion(items, nil); });
 		}];
 
-		request.recognitionLevel = VNRequestTextRecognitionLevelAccurate;
+		request.recognitionLevel = VNRequestTextRecognitionLevelFast;
 		request.usesLanguageCorrection = NO;
+		request.minimumTextHeight = 0.018;
 		NSArray<NSString *> *preferred = @[@"zh-Hans", @"zh-Hant", @"en-US"];
 		NSArray<NSString *> *supported = [request supportedRecognitionLanguagesAndReturnError:nil] ?: preferred;
 		NSMutableArray<NSString *> *available = [NSMutableArray array];
@@ -323,26 +325,95 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 
 - (void)translateItems:(NSArray<BTTextItem *> *)items index:(NSUInteger)index completion:(void (^)(NSArray<BTTextItem *> *translatedItems))completion {
 	if (index >= items.count) {
-		NSMutableArray<BTTextItem *> *translated = [NSMutableArray array];
-		for (BTTextItem *item in items) {
-			if (item.translated.length > 0) {
-				[translated addObject:item];
-			}
-		}
-		completion(translated);
+		completion([self translatedItemsFromItems:items]);
 		return;
 	}
 
-	BTTextItem *item = items[index];
-	[self showOverlayStatus:[NSString stringWithFormat:@"Translating %lu/%lu", (unsigned long)(index + 1), (unsigned long)items.count]];
+	NSUInteger batchEnd = MIN(index + BTTranslationBatchSize, items.count);
+	NSArray<BTTextItem *> *batch = [items subarrayWithRange:NSMakeRange(index, batchEnd - index)];
+	[self showOverlayStatus:[NSString stringWithFormat:@"Translating %lu/%lu", (unsigned long)batchEnd, (unsigned long)items.count]];
+	[self translateBatch:batch completion:^{
+		[self renderTranslatedItems:[self translatedItemsFromItems:items]];
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.03 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+			[self translateItems:items index:batchEnd completion:completion];
+		});
+	}];
+}
+
+- (NSArray<BTTextItem *> *)translatedItemsFromItems:(NSArray<BTTextItem *> *)items {
+	NSMutableArray<BTTextItem *> *translated = [NSMutableArray array];
+	for (BTTextItem *item in items) {
+		if (item.translated.length > 0) {
+			[translated addObject:item];
+		}
+	}
+	return translated;
+}
+
+- (void)translateBatch:(NSArray<BTTextItem *> *)batch completion:(void (^)(void))completion {
+	if (batch.count == 0) {
+		completion();
+		return;
+	}
+
+	NSMutableArray<NSString *> *sources = [NSMutableArray arrayWithCapacity:batch.count];
+	for (BTTextItem *item in batch) {
+		[sources addObject:item.source ?: @""];
+	}
+
+	NSString *joined = [sources componentsJoinedByString:@"\n"];
+	[self translateText:joined completion:^(NSString *translatedText, NSError *error) {
+		(void)error;
+		NSArray<NSString *> *lines = [self translatedLinesFromText:translatedText expectedCount:batch.count];
+		if (lines.count == batch.count) {
+			for (NSUInteger index = 0; index < batch.count; index++) {
+				BTTextItem *item = batch[index];
+				item.translated = lines[index];
+			}
+			completion();
+			return;
+		}
+
+		[self translateBatchSequentially:batch index:0 completion:completion];
+	}];
+}
+
+- (NSArray<NSString *> *)translatedLinesFromText:(NSString *)text expectedCount:(NSUInteger)expectedCount {
+	if (text.length == 0) {
+		return @[];
+	}
+
+	NSArray<NSString *> *rawLines = [text componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet];
+	NSMutableArray<NSString *> *lines = [NSMutableArray array];
+	for (NSString *line in rawLines) {
+		NSString *cleaned = [line stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+		if (cleaned.length > 0) {
+			[lines addObject:cleaned];
+		}
+	}
+
+	if (lines.count == expectedCount) {
+		return lines;
+	}
+	if (expectedCount == 1) {
+		return @[[text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]];
+	}
+	return @[];
+}
+
+- (void)translateBatchSequentially:(NSArray<BTTextItem *> *)batch index:(NSUInteger)index completion:(void (^)(void))completion {
+	if (index >= batch.count) {
+		completion();
+		return;
+	}
+
+	BTTextItem *item = batch[index];
 	[self translateText:item.source completion:^(NSString *translatedText, NSError *error) {
 		(void)error;
 		if (translatedText.length > 0) {
 			item.translated = translatedText;
 		}
-		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.08 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-			[self translateItems:items index:index + 1 completion:completion];
-		});
+		[self translateBatchSequentially:batch index:index + 1 completion:completion];
 	}];
 }
 
@@ -561,35 +632,52 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 
 - (UILabel *)labelForItem:(BTTextItem *)item {
 	CGRect screenBounds = UIScreen.mainScreen.bounds;
-	CGFloat fontSize = MAX(10.0, MIN(15.0, CGRectGetHeight(item.frame) * 0.72));
-	UIFont *font = [UIFont systemFontOfSize:fontSize weight:UIFontWeightSemibold];
+	CGFloat fontSize = MAX(7.5, MIN(10.5, CGRectGetHeight(item.frame) * 0.48));
+	UIFont *font = [UIFont systemFontOfSize:fontSize weight:UIFontWeightMedium];
+	NSString *displayText = [self compactTranslation:item.translated];
 
-	CGFloat maxWidth = MIN(CGRectGetWidth(screenBounds) - 16.0, MAX(CGRectGetWidth(item.frame) + 48.0, 96.0));
-	CGRect textRect = [item.translated boundingRectWithSize:CGSizeMake(maxWidth - 10.0, 72.0)
+	CGFloat maxWidth = MIN(CGRectGetWidth(screenBounds) - 16.0, MAX(CGRectGetWidth(item.frame) + 18.0, 58.0));
+	CGRect textRect = [displayText boundingRectWithSize:CGSizeMake(maxWidth - 6.0, 30.0)
 	                                                options:NSStringDrawingUsesLineFragmentOrigin
 	                                             attributes:@{NSFontAttributeName: font}
 	                                                context:nil];
-	CGFloat width = MIN(maxWidth, MAX(CGRectGetWidth(item.frame) + 8.0, ceil(textRect.size.width) + 12.0));
-	CGFloat height = MIN(78.0, MAX(CGRectGetHeight(item.frame) + 4.0, ceil(textRect.size.height) + 8.0));
+	CGFloat width = MIN(maxWidth, MAX(CGRectGetWidth(item.frame) + 2.0, ceil(textRect.size.width) + 8.0));
+	CGFloat height = MIN(34.0, MAX(CGRectGetHeight(item.frame) + 1.0, ceil(textRect.size.height) + 5.0));
 
 	CGFloat x = MIN(MAX(8.0, CGRectGetMinX(item.frame)), CGRectGetWidth(screenBounds) - width - 8.0);
 	CGFloat y = MIN(MAX(24.0, CGRectGetMinY(item.frame)), CGRectGetHeight(screenBounds) - height - 8.0);
 
 	UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(x, y, width, height)];
 	label.userInteractionEnabled = NO;
-	label.numberOfLines = 3;
+	label.numberOfLines = 2;
 	label.textAlignment = NSTextAlignmentCenter;
-	label.text = item.translated;
+	label.text = displayText;
 	label.font = font;
 	label.textColor = UIColor.blackColor;
-	label.backgroundColor = [UIColor colorWithRed:1.0 green:0.98 blue:0.70 alpha:0.95];
-	label.layer.cornerRadius = 5.0;
+	label.backgroundColor = [UIColor colorWithRed:1.0 green:0.98 blue:0.70 alpha:0.78];
+	label.layer.cornerRadius = 4.0;
 	label.layer.masksToBounds = YES;
 	label.layer.borderColor = [UIColor colorWithWhite:0.0 alpha:0.18].CGColor;
 	label.layer.borderWidth = 0.5;
 	label.adjustsFontSizeToFitWidth = YES;
-	label.minimumScaleFactor = 0.72;
+	label.minimumScaleFactor = 0.65;
+	label.lineBreakMode = NSLineBreakByTruncatingTail;
+	label.alpha = 0.88;
 	return label;
+}
+
+- (NSString *)compactTranslation:(NSString *)translation {
+	NSString *cleaned = [translation stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+	cleaned = [cleaned stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
+	while ([cleaned containsString:@"  "]) {
+		cleaned = [cleaned stringByReplacingOccurrencesOfString:@"  " withString:@" "];
+	}
+
+	NSUInteger maxLength = 42;
+	if (cleaned.length <= maxLength) {
+		return cleaned;
+	}
+	return [[cleaned substringToIndex:maxLength - 1] stringByAppendingString:@"..."];
 }
 
 - (void)hideOverlay {

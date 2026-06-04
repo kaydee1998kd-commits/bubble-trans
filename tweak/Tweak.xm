@@ -283,9 +283,8 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 			dispatch_async(dispatch_get_main_queue(), ^{ completion(items, nil); });
 		}];
 
-		request.recognitionLevel = VNRequestTextRecognitionLevelFast;
+		request.recognitionLevel = VNRequestTextRecognitionLevelAccurate;
 		request.usesLanguageCorrection = NO;
-		request.minimumTextHeight = 0.018;
 		NSArray<NSString *> *preferred = @[@"zh-Hans", @"zh-Hant", @"en-US"];
 		NSArray<NSString *> *supported = [request supportedRecognitionLanguagesAndReturnError:nil] ?: preferred;
 		NSMutableArray<NSString *> *available = [NSMutableArray array];

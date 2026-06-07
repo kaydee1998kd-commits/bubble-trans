@@ -625,32 +625,26 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 
 - (void)renderTranslatedItems:(NSArray<BTTextItem *> *)items {
 	[self clearTranslationLabels];
+	NSMutableArray<NSValue *> *occupiedFrames = [NSMutableArray array];
+	if (!self.statusPill.hidden) {
+		[occupiedFrames addObject:[NSValue valueWithCGRect:CGRectInset(self.statusPill.frame, -4.0, -4.0)]];
+	}
 	for (BTTextItem *item in items) {
-		UILabel *label = [self labelForItem:item];
+		UILabel *label = [self labelForItem:item avoidingFrames:occupiedFrames];
 		[self.overlayView addSubview:label];
+		[occupiedFrames addObject:[NSValue valueWithCGRect:CGRectInset(label.frame, -1.5, -1.5)]];
 	}
 }
 
-- (UILabel *)labelForItem:(BTTextItem *)item {
+- (UILabel *)labelForItem:(BTTextItem *)item avoidingFrames:(NSMutableArray<NSValue *> *)occupiedFrames {
 	CGRect screenBounds = UIScreen.mainScreen.bounds;
-	CGFloat fontSize = MAX(7.5, MIN(10.5, CGRectGetHeight(item.frame) * 0.48));
-	UIFont *font = [UIFont systemFontOfSize:fontSize weight:UIFontWeightMedium];
-	NSString *displayText = [self compactTranslation:item.translated];
+	NSString *displayText = [self normalizedTranslation:item.translated];
+	CGRect frame = [self labelFrameForItem:item text:displayText screenBounds:screenBounds avoidingFrames:occupiedFrames];
+	UIFont *font = [self fittingFontForText:displayText inSize:frame.size sourceFrame:item.frame];
 
-	CGFloat maxWidth = MIN(CGRectGetWidth(screenBounds) - 16.0, MAX(CGRectGetWidth(item.frame) + 18.0, 58.0));
-	CGRect textRect = [displayText boundingRectWithSize:CGSizeMake(maxWidth - 6.0, 30.0)
-	                                                options:NSStringDrawingUsesLineFragmentOrigin
-	                                             attributes:@{NSFontAttributeName: font}
-	                                                context:nil];
-	CGFloat width = MIN(maxWidth, MAX(CGRectGetWidth(item.frame) + 2.0, ceil(textRect.size.width) + 8.0));
-	CGFloat height = MIN(34.0, MAX(CGRectGetHeight(item.frame) + 1.0, ceil(textRect.size.height) + 5.0));
-
-	CGFloat x = MIN(MAX(8.0, CGRectGetMinX(item.frame)), CGRectGetWidth(screenBounds) - width - 8.0);
-	CGFloat y = MIN(MAX(24.0, CGRectGetMinY(item.frame)), CGRectGetHeight(screenBounds) - height - 8.0);
-
-	UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(x, y, width, height)];
+	UILabel *label = [[UILabel alloc] initWithFrame:frame];
 	label.userInteractionEnabled = NO;
-	label.numberOfLines = 2;
+	label.numberOfLines = 0;
 	label.textAlignment = NSTextAlignmentCenter;
 	label.text = displayText;
 	label.font = font;
@@ -660,25 +654,128 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 	label.layer.masksToBounds = YES;
 	label.layer.borderColor = [UIColor colorWithWhite:0.0 alpha:0.18].CGColor;
 	label.layer.borderWidth = 0.5;
-	label.adjustsFontSizeToFitWidth = YES;
-	label.minimumScaleFactor = 0.65;
-	label.lineBreakMode = NSLineBreakByTruncatingTail;
+	label.adjustsFontSizeToFitWidth = NO;
+	label.lineBreakMode = NSLineBreakByWordWrapping;
 	label.alpha = 0.88;
 	return label;
 }
 
-- (NSString *)compactTranslation:(NSString *)translation {
+- (CGRect)labelFrameForItem:(BTTextItem *)item text:(NSString *)text screenBounds:(CGRect)screenBounds avoidingFrames:(NSArray<NSValue *> *)occupiedFrames {
+	CGFloat screenWidth = CGRectGetWidth(screenBounds);
+	CGFloat screenHeight = CGRectGetHeight(screenBounds);
+	CGFloat sourceWidth = CGRectGetWidth(item.frame);
+	CGFloat sourceHeight = CGRectGetHeight(item.frame);
+	CGFloat width = MIN(screenWidth - 12.0, MAX(sourceWidth + 4.0, 42.0));
+	CGFloat baseHeight = MAX(sourceHeight + 3.0, 12.0);
+
+	UIFont *minimumFont = [UIFont systemFontOfSize:3.2 weight:UIFontWeightMedium];
+	CGFloat requiredHeight = [self textHeightForText:text width:width - 5.0 font:minimumFont] + 5.0;
+	CGFloat height = MIN(MAX(baseHeight, requiredHeight), screenHeight - 24.0);
+	if (requiredHeight > height && width < MIN(screenWidth - 12.0, sourceWidth + 34.0)) {
+		width = MIN(screenWidth - 12.0, MAX(width, sourceWidth + 34.0));
+		requiredHeight = [self textHeightForText:text width:width - 5.0 font:minimumFont] + 5.0;
+		height = MIN(MAX(baseHeight, requiredHeight), screenHeight - 24.0);
+	}
+
+	CGRect preferred = CGRectMake(CGRectGetMinX(item.frame) - 2.0, CGRectGetMinY(item.frame) - 1.5, width, height);
+	preferred = [self clampedLabelFrame:preferred screenBounds:screenBounds];
+	if (![self frame:preferred intersectsOccupiedFrames:occupiedFrames]) {
+		return preferred;
+	}
+
+	CGFloat step = MAX(height + 2.0, 10.0);
+	for (NSUInteger attempt = 1; attempt <= 10; attempt++) {
+		CGFloat delta = step * attempt;
+		CGRect below = [self clampedLabelFrame:CGRectOffset(preferred, 0.0, delta) screenBounds:screenBounds];
+		if (![self frame:below intersectsOccupiedFrames:occupiedFrames]) {
+			return below;
+		}
+
+		CGRect above = [self clampedLabelFrame:CGRectOffset(preferred, 0.0, -delta) screenBounds:screenBounds];
+		if (![self frame:above intersectsOccupiedFrames:occupiedFrames]) {
+			return above;
+		}
+
+		CGRect right = [self clampedLabelFrame:CGRectOffset(preferred, width + 2.0, 0.0) screenBounds:screenBounds];
+		if (![self frame:right intersectsOccupiedFrames:occupiedFrames]) {
+			return right;
+		}
+
+		CGRect left = [self clampedLabelFrame:CGRectOffset(preferred, -width - 2.0, 0.0) screenBounds:screenBounds];
+		if (![self frame:left intersectsOccupiedFrames:occupiedFrames]) {
+			return left;
+		}
+	}
+
+	for (CGFloat y = 18.0; y <= screenHeight - height - 6.0; y += MAX(8.0, height + 2.0)) {
+		CGRect sameColumn = [self clampedLabelFrame:CGRectMake(CGRectGetMinX(preferred), y, width, height) screenBounds:screenBounds];
+		if (![self frame:sameColumn intersectsOccupiedFrames:occupiedFrames]) {
+			return sameColumn;
+		}
+
+		CGRect leftColumn = [self clampedLabelFrame:CGRectMake(6.0, y, width, height) screenBounds:screenBounds];
+		if (![self frame:leftColumn intersectsOccupiedFrames:occupiedFrames]) {
+			return leftColumn;
+		}
+
+		CGRect rightColumn = [self clampedLabelFrame:CGRectMake(screenWidth - width - 6.0, y, width, height) screenBounds:screenBounds];
+		if (![self frame:rightColumn intersectsOccupiedFrames:occupiedFrames]) {
+			return rightColumn;
+		}
+	}
+
+	return preferred;
+}
+
+- (CGRect)clampedLabelFrame:(CGRect)frame screenBounds:(CGRect)screenBounds {
+	CGFloat width = MIN(CGRectGetWidth(frame), CGRectGetWidth(screenBounds) - 12.0);
+	CGFloat height = MIN(CGRectGetHeight(frame), CGRectGetHeight(screenBounds) - 18.0);
+	CGFloat x = MIN(MAX(6.0, CGRectGetMinX(frame)), CGRectGetWidth(screenBounds) - width - 6.0);
+	CGFloat y = MIN(MAX(18.0, CGRectGetMinY(frame)), CGRectGetHeight(screenBounds) - height - 6.0);
+	return CGRectIntegral(CGRectMake(x, y, width, height));
+}
+
+- (BOOL)frame:(CGRect)frame intersectsOccupiedFrames:(NSArray<NSValue *> *)occupiedFrames {
+	for (NSValue *value in occupiedFrames) {
+		if (CGRectIntersectsRect(frame, value.CGRectValue)) {
+			return YES;
+		}
+	}
+	return NO;
+}
+
+- (UIFont *)fittingFontForText:(NSString *)text inSize:(CGSize)size sourceFrame:(CGRect)sourceFrame {
+	CGFloat maxFontSize = MAX(5.0, MIN(10.5, CGRectGetHeight(sourceFrame) * 0.52));
+	CGFloat minFontSize = 3.2;
+	CGFloat usableWidth = MAX(10.0, size.width - 5.0);
+	CGFloat usableHeight = MAX(6.0, size.height - 3.0);
+
+	for (CGFloat fontSize = maxFontSize; fontSize >= minFontSize; fontSize -= 0.25) {
+		UIFont *font = [UIFont systemFontOfSize:fontSize weight:UIFontWeightMedium];
+		CGFloat height = [self textHeightForText:text width:usableWidth font:font];
+		if (height <= usableHeight) {
+			return font;
+		}
+	}
+
+	return [UIFont systemFontOfSize:minFontSize weight:UIFontWeightMedium];
+}
+
+- (CGFloat)textHeightForText:(NSString *)text width:(CGFloat)width font:(UIFont *)font {
+	CGRect textRect = [text boundingRectWithSize:CGSizeMake(MAX(1.0, width), CGFLOAT_MAX)
+	                                     options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading
+	                                  attributes:@{NSFontAttributeName: font}
+	                                     context:nil];
+	return ceil(textRect.size.height);
+}
+
+- (NSString *)normalizedTranslation:(NSString *)translation {
 	NSString *cleaned = [translation stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
 	cleaned = [cleaned stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
 	while ([cleaned containsString:@"  "]) {
 		cleaned = [cleaned stringByReplacingOccurrencesOfString:@"  " withString:@" "];
 	}
-
-	NSUInteger maxLength = 42;
-	if (cleaned.length <= maxLength) {
-		return cleaned;
-	}
-	return [[cleaned substringToIndex:maxLength - 1] stringByAppendingString:@"..."];
+	return cleaned;
 }
 
 - (void)hideOverlay {

@@ -24,6 +24,8 @@ Use the `.deb` package from the GitHub Actions artifact or the `release/` folder
 Direct repository paths:
 
 ```text
+release/BubbleTrans-rootless-0.3.1.deb
+release/BubbleTrans-rootful-0.3.1.deb
 release/BubbleTrans-rootless-0.3.0.deb
 release/BubbleTrans-rootful-0.3.0.deb
 release/BubbleTrans-rootless-0.2.0.deb
@@ -44,8 +46,8 @@ killall SpringBoard
 ## Notes
 
 - The tweak sends recognized text to MyMemory for translation.
-- Version `0.3.0` adds Taobao and Pinduoduo support and removes the 18-item OCR cap so every detected Chinese line on the visible screen is translated.
-- Inline labels are intentionally compact and truncated so Xianyu remains readable behind them.
+- Version `0.3.1` keeps full translated phrases, dynamically shrinks each label font, and tries alternate positions to avoid overlap.
+- Inline labels are intentionally compact and may become very small when English is much longer than the original Chinese area.
 - It overlays OCR lines, not true private Xianyu text nodes, so scrolling the page after translation requires tapping `EN` again.
 - If Xianyu changes its bundle identifier, update `tweak/BubbleTrans.plist`.
 - This is independent from the TrollStore IPA. TrollStore installs apps; this tweak must be installed by the jailbreak package manager.

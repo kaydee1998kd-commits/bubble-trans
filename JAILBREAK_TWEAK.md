@@ -24,6 +24,8 @@ Use the `.deb` package from the GitHub Actions artifact or the `release/` folder
 Direct repository paths:
 
 ```text
+release/BubbleTrans-rootless-0.4.1.deb
+release/BubbleTrans-rootful-0.4.1.deb
 release/BubbleTrans-rootless-0.4.0.deb
 release/BubbleTrans-rootful-0.4.0.deb
 release/BubbleTrans-rootless-0.3.1.deb
@@ -48,6 +50,7 @@ killall SpringBoard
 ## Notes
 
 - The tweak sends recognized text to Google Translate first, then falls back to MyMemory if needed.
+- Version `0.4.1` uses fully opaque high-contrast translation tabs with solid black semibold text for better tiny-text readability.
 - Version `0.4.0` moves all scan/progress/clear states into the draggable `EN` bubble and idles the bubble dim after use.
 - Version `0.4.0` draws translated labels directly on the OCR text rectangles instead of using enlarged or shifted label boxes.
 - Inline labels are intentionally compact and may become very small when English is much longer than the original Chinese area.

@@ -1,6 +1,6 @@
 Package: com.codex.bubbletrans
 Name: BubbleTrans Shopping
-Version: 0.4.0
+Version: 0.4.1
 Architecture: iphoneos-arm
 Description: Floating inline OCR translator overlay for Xianyu, Taobao, and Pinduoduo.
 Maintainer: Codex

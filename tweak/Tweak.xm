@@ -648,15 +648,16 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 	label.textAlignment = NSTextAlignmentCenter;
 	label.text = displayText;
 	label.font = font;
-	label.textColor = UIColor.blackColor;
-	label.backgroundColor = [UIColor colorWithRed:1.0 green:0.98 blue:0.70 alpha:0.78];
-	label.layer.cornerRadius = 4.0;
+	label.textColor = [UIColor colorWithWhite:0.0 alpha:1.0];
+	label.backgroundColor = [UIColor colorWithRed:1.0 green:0.94 blue:0.18 alpha:1.0];
+	label.opaque = YES;
+	label.layer.cornerRadius = MIN(3.0, MAX(1.0, CGRectGetHeight(frame) * 0.16));
 	label.layer.masksToBounds = YES;
-	label.layer.borderColor = [UIColor colorWithWhite:0.0 alpha:0.18].CGColor;
-	label.layer.borderWidth = 0.5;
+	label.layer.borderColor = [UIColor colorWithWhite:0.0 alpha:0.78].CGColor;
+	label.layer.borderWidth = 0.7;
 	label.adjustsFontSizeToFitWidth = NO;
 	label.lineBreakMode = NSLineBreakByWordWrapping;
-	label.alpha = 0.88;
+	label.alpha = 1.0;
 	return label;
 }
 
@@ -679,14 +680,14 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 	CGFloat usableHeight = MAX(3.0, size.height - 1.0);
 
 	for (CGFloat fontSize = maxFontSize; fontSize >= minFontSize; fontSize -= 0.25) {
-		UIFont *font = [UIFont systemFontOfSize:fontSize weight:UIFontWeightMedium];
+		UIFont *font = [UIFont systemFontOfSize:fontSize weight:UIFontWeightSemibold];
 		CGFloat height = [self textHeightForText:text width:usableWidth font:font];
 		if (height <= usableHeight) {
 			return font;
 		}
 	}
 
-	return [UIFont systemFontOfSize:minFontSize weight:UIFontWeightMedium];
+	return [UIFont systemFontOfSize:minFontSize weight:UIFontWeightSemibold];
 }
 
 - (CGFloat)textHeightForText:(NSString *)text width:(CGFloat)width font:(UIFont *)font {

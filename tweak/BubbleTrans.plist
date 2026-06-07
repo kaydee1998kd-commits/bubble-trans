@@ -2,7 +2,10 @@
 	Filter = {
 		Bundles = (
 			"com.taobao.fleamarket",
-			"com.taobao.idlefish"
+			"com.taobao.idlefish",
+			"com.taobao.taobao4iphone",
+			"com.taobao.taobao",
+			"com.xunmeng.pinduoduo"
 		);
 	};
 }

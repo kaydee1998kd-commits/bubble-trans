@@ -1,7 +1,7 @@
 ARCHS = arm64 arm64e
 TARGET := iphone:clang:latest:15.0
 PACKAGE_FORMAT = deb
-INSTALL_TARGET_PROCESSES = Xianyu
+INSTALL_TARGET_PROCESSES = Xianyu Taobao Pinduoduo
 
 include $(THEOS)/makefiles/common.mk
 

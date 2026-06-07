@@ -12,7 +12,7 @@ It does not try to draw a permanent Android-style overlay on top of Xianyu. A st
 
 The main app also lets you pick a saved screenshot or paste an image from the clipboard.
 
-For jailbroken devices, this repo also includes **BubbleTrans**, a real floating-bubble tweak that overlays English translations inside Xianyu. See `JAILBREAK_TWEAK.md`.
+For jailbroken devices, this repo also includes **BubbleTrans**, a real floating-bubble tweak that overlays English translations inside Xianyu, Taobao, and Pinduoduo. See `JAILBREAK_TWEAK.md`.
 
 ## Features
 
@@ -57,6 +57,8 @@ release/XiBubble.ipa
 The jailbreak tweak packages are kept at:
 
 ```text
+release/BubbleTrans-rootless-0.3.0.deb
+release/BubbleTrans-rootful-0.3.0.deb
 release/BubbleTrans-rootless-0.2.0.deb
 release/BubbleTrans-rootful-0.2.0.deb
 release/BubbleTrans-rootless-0.1.1.deb

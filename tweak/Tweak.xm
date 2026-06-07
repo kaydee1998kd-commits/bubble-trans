@@ -5,11 +5,16 @@
 #import <ImageIO/ImageIO.h>
 
 static CGFloat BTBubbleSize = 58.0;
-static NSUInteger BTMaxOverlayItems = 18;
 static NSUInteger BTTranslationBatchSize = 6;
 
 static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
-	return @[@"com.taobao.fleamarket", @"com.taobao.idlefish"];
+	return @[
+		@"com.taobao.fleamarket",
+		@"com.taobao.idlefish",
+		@"com.taobao.taobao4iphone",
+		@"com.taobao.taobao",
+		@"com.xunmeng.pinduoduo"
+	];
 }
 
 @interface BTTextItem : NSObject
@@ -265,9 +270,6 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 					continue;
 				}
 				[items addObject:item];
-				if (items.count >= BTMaxOverlayItems) {
-					break;
-				}
 			}
 
 			[items sortUsingComparator:^NSComparisonResult(BTTextItem *first, BTTextItem *second) {

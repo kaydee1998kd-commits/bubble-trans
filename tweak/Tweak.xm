@@ -48,10 +48,9 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 @property (nonatomic, strong) UIButton *bubbleButton;
 @property (nonatomic, strong) UIWindow *overlayWindow;
 @property (nonatomic, strong) BTPassthroughView *overlayView;
-@property (nonatomic, strong) UIView *statusPill;
-@property (nonatomic, strong) UILabel *statusLabel;
-@property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @property (nonatomic, assign) BOOL busy;
+@property (nonatomic, assign) BOOL translationsVisible;
+@property (nonatomic, assign) NSUInteger bubbleDimToken;
 @end
 
 @implementation BTTranslatorOverlay
@@ -151,9 +150,12 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 	self.bubbleButton.layer.shadowOpacity = 0.22;
 	self.bubbleButton.layer.shadowRadius = 9.0;
 	self.bubbleButton.layer.shadowOffset = CGSizeMake(0.0, 4.0);
-	self.bubbleButton.titleLabel.font = [UIFont boldSystemFontOfSize:17.0];
+	self.bubbleButton.titleLabel.font = [UIFont boldSystemFontOfSize:13.0];
+	self.bubbleButton.titleLabel.adjustsFontSizeToFitWidth = YES;
+	self.bubbleButton.titleLabel.minimumScaleFactor = 0.55;
 	[self.bubbleButton setTitle:@"EN" forState:UIControlStateNormal];
 	[self.bubbleButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+	self.bubbleButton.alpha = 0.48;
 	[self.bubbleButton addTarget:self action:@selector(translateVisibleScreen) forControlEvents:UIControlEventTouchUpInside];
 
 	UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dragBubble:)];
@@ -162,6 +164,11 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 }
 
 - (void)dragBubble:(UIPanGestureRecognizer *)recognizer {
+	if (recognizer.state == UIGestureRecognizerStateBegan || recognizer.state == UIGestureRecognizerStateChanged) {
+		self.bubbleDimToken++;
+		self.bubbleButton.alpha = 0.96;
+	}
+
 	CGPoint translation = [recognizer translationInView:nil];
 	CGPoint center = self.bubbleWindow.center;
 	center.x += translation.x;
@@ -169,6 +176,10 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 	[self clampBubbleCenter:&center];
 	self.bubbleWindow.center = center;
 	[recognizer setTranslation:CGPointZero inView:nil];
+
+	if (recognizer.state == UIGestureRecognizerStateEnded || recognizer.state == UIGestureRecognizerStateCancelled || recognizer.state == UIGestureRecognizerStateFailed) {
+		[self scheduleBubbleIdleDim];
+	}
 }
 
 - (void)clampBubbleCenter:(CGPoint *)center {
@@ -184,32 +195,37 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 		return;
 	}
 
+	if (self.translationsVisible) {
+		[self hideOverlay];
+		return;
+	}
+
 	self.busy = YES;
-	[self showOverlayStatus:@"Scanning"];
+	[self setBubbleTitle:@"Scan" active:YES];
 	[self clearTranslationLabels];
 
 	dispatch_async(dispatch_get_main_queue(), ^{
 		UIImage *image = [self captureHostScreen];
 		CGSize screenSize = [self hostWindow].bounds.size;
 		if (!image || CGSizeEqualToSize(screenSize, CGSizeZero)) {
-			[self finishWithStatus:@"Screen capture failed"];
+			[self finishWithBubbleTitle:@"Fail" showClear:NO];
 			return;
 		}
 
 		[self recognizeImage:image screenSize:screenSize completion:^(NSArray<BTTextItem *> *items, NSError *error) {
 			if (error) {
-				[self finishWithStatus:error.localizedDescription ?: @"OCR failed"];
+				[self finishWithBubbleTitle:@"OCR" showClear:NO];
 				return;
 			}
 			if (items.count == 0) {
-				[self finishWithStatus:@"No Chinese text found"];
+				[self finishWithBubbleTitle:@"No CN" showClear:NO];
 				return;
 			}
 
-			[self showOverlayStatus:[NSString stringWithFormat:@"Translating 0/%lu", (unsigned long)items.count]];
+			[self setBubbleTitle:[NSString stringWithFormat:@"0/%lu", (unsigned long)items.count] active:YES];
 			[self translateItems:items index:0 completion:^(NSArray<BTTextItem *> *translatedItems) {
 				[self renderTranslatedItems:translatedItems];
-				[self finishWithStatus:[NSString stringWithFormat:@"Translated %lu", (unsigned long)translatedItems.count]];
+				[self finishWithBubbleTitle:@"Clear" showClear:(translatedItems.count > 0)];
 			}];
 		}];
 	});
@@ -321,7 +337,7 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 	CGFloat y = (1.0 - box.origin.y - box.size.height) * screenSize.height;
 	CGFloat width = box.size.width * screenSize.width;
 	CGFloat height = box.size.height * screenSize.height;
-	return CGRectInset(CGRectMake(x, y, width, height), -3.0, -2.0);
+	return CGRectMake(x, y, width, height);
 }
 
 - (void)translateItems:(NSArray<BTTextItem *> *)items index:(NSUInteger)index completion:(void (^)(NSArray<BTTextItem *> *translatedItems))completion {
@@ -332,7 +348,7 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 
 	NSUInteger batchEnd = MIN(index + BTTranslationBatchSize, items.count);
 	NSArray<BTTextItem *> *batch = [items subarrayWithRange:NSMakeRange(index, batchEnd - index)];
-	[self showOverlayStatus:[NSString stringWithFormat:@"Translating %lu/%lu", (unsigned long)batchEnd, (unsigned long)items.count]];
+	[self setBubbleTitle:[NSString stringWithFormat:@"%lu/%lu", (unsigned long)batchEnd, (unsigned long)items.count] active:YES];
 	[self translateBatch:batch completion:^{
 		[self renderTranslatedItems:[self translatedItemsFromItems:items]];
 		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.03 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
@@ -567,79 +583,63 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 	self.overlayView.backgroundColor = UIColor.clearColor;
 	controller.view = self.overlayView;
 	self.overlayWindow.rootViewController = controller;
-
-	self.statusPill = [[UIView alloc] initWithFrame:CGRectMake(14.0, 48.0, 210.0, 38.0)];
-	self.statusPill.backgroundColor = [UIColor colorWithWhite:0.05 alpha:0.82];
-	self.statusPill.layer.cornerRadius = 19.0;
-	self.statusPill.layer.shadowColor = UIColor.blackColor.CGColor;
-	self.statusPill.layer.shadowOpacity = 0.2;
-	self.statusPill.layer.shadowRadius = 8.0;
-	self.statusPill.layer.shadowOffset = CGSizeMake(0.0, 3.0);
-	[self.overlayView addSubview:self.statusPill];
-
-	self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
-	self.spinner.frame = CGRectMake(8.0, 7.0, 24.0, 24.0);
-	self.spinner.color = UIColor.whiteColor;
-	[self.statusPill addSubview:self.spinner];
-
-	self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(36.0, 4.0, 112.0, 30.0)];
-	self.statusLabel.font = [UIFont systemFontOfSize:13.0 weight:UIFontWeightSemibold];
-	self.statusLabel.textColor = UIColor.whiteColor;
-	self.statusLabel.adjustsFontSizeToFitWidth = YES;
-	self.statusLabel.minimumScaleFactor = 0.75;
-	[self.statusPill addSubview:self.statusLabel];
-
-	UIButton *clearButton = [UIButton buttonWithType:UIButtonTypeSystem];
-	clearButton.frame = CGRectMake(151.0, 3.0, 54.0, 32.0);
-	clearButton.tintColor = UIColor.whiteColor;
-	clearButton.titleLabel.font = [UIFont systemFontOfSize:13.0 weight:UIFontWeightBold];
-	[clearButton setTitle:@"Clear" forState:UIControlStateNormal];
-	[clearButton addTarget:self action:@selector(hideOverlay) forControlEvents:UIControlEventTouchUpInside];
-	[self.statusPill addSubview:clearButton];
 }
 
-- (void)showOverlayStatus:(NSString *)status {
-	[self buildOverlayIfNeeded];
-	self.overlayWindow.hidden = NO;
-	self.statusPill.hidden = NO;
-	self.statusLabel.text = status;
-	[self.spinner startAnimating];
+- (void)setBubbleTitle:(NSString *)title active:(BOOL)active {
+	dispatch_async(dispatch_get_main_queue(), ^{
+		self.bubbleDimToken++;
+		[self.bubbleButton setTitle:title forState:UIControlStateNormal];
+		self.bubbleButton.alpha = active ? 0.96 : 0.48;
+		if (active && !self.busy) {
+			[self scheduleBubbleIdleDim];
+		}
+	});
 }
 
-- (void)finishWithStatus:(NSString *)status {
+- (void)scheduleBubbleIdleDim {
+	NSUInteger token = self.bubbleDimToken;
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+		if (token == self.bubbleDimToken && !self.busy) {
+			self.bubbleButton.alpha = 0.48;
+		}
+	});
+}
+
+- (void)finishWithBubbleTitle:(NSString *)title showClear:(BOOL)showClear {
 	dispatch_async(dispatch_get_main_queue(), ^{
 		self.busy = NO;
-		self.statusLabel.text = status;
-		[self.spinner stopAnimating];
+		self.translationsVisible = showClear;
+		[self setBubbleTitle:showClear ? @"Clear" : title active:showClear];
+		if (!showClear) {
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+				if (!self.busy && !self.translationsVisible) {
+					[self setBubbleTitle:@"EN" active:NO];
+				}
+			});
+		}
 	});
 }
 
 - (void)clearTranslationLabels {
 	[self buildOverlayIfNeeded];
 	for (UIView *view in [self.overlayView.subviews copy]) {
-		if (view != self.statusPill) {
-			[view removeFromSuperview];
-		}
+		[view removeFromSuperview];
 	}
 }
 
 - (void)renderTranslatedItems:(NSArray<BTTextItem *> *)items {
 	[self clearTranslationLabels];
-	NSMutableArray<NSValue *> *occupiedFrames = [NSMutableArray array];
-	if (!self.statusPill.hidden) {
-		[occupiedFrames addObject:[NSValue valueWithCGRect:CGRectInset(self.statusPill.frame, -4.0, -4.0)]];
-	}
+	self.overlayWindow.hidden = NO;
 	for (BTTextItem *item in items) {
-		UILabel *label = [self labelForItem:item avoidingFrames:occupiedFrames];
+		UILabel *label = [self labelForItem:item];
 		[self.overlayView addSubview:label];
-		[occupiedFrames addObject:[NSValue valueWithCGRect:CGRectInset(label.frame, -1.5, -1.5)]];
 	}
 }
 
-- (UILabel *)labelForItem:(BTTextItem *)item avoidingFrames:(NSMutableArray<NSValue *> *)occupiedFrames {
+- (UILabel *)labelForItem:(BTTextItem *)item {
 	CGRect screenBounds = UIScreen.mainScreen.bounds;
 	NSString *displayText = [self normalizedTranslation:item.translated];
-	CGRect frame = [self labelFrameForItem:item text:displayText screenBounds:screenBounds avoidingFrames:occupiedFrames];
+	CGRect frame = [self labelFrameForItem:item screenBounds:screenBounds];
 	UIFont *font = [self fittingFontForText:displayText inSize:frame.size sourceFrame:item.frame];
 
 	UILabel *label = [[UILabel alloc] initWithFrame:frame];
@@ -660,71 +660,8 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 	return label;
 }
 
-- (CGRect)labelFrameForItem:(BTTextItem *)item text:(NSString *)text screenBounds:(CGRect)screenBounds avoidingFrames:(NSArray<NSValue *> *)occupiedFrames {
-	CGFloat screenWidth = CGRectGetWidth(screenBounds);
-	CGFloat screenHeight = CGRectGetHeight(screenBounds);
-	CGFloat sourceWidth = CGRectGetWidth(item.frame);
-	CGFloat sourceHeight = CGRectGetHeight(item.frame);
-	CGFloat width = MIN(screenWidth - 12.0, MAX(sourceWidth + 4.0, 42.0));
-	CGFloat baseHeight = MAX(sourceHeight + 3.0, 12.0);
-
-	UIFont *minimumFont = [UIFont systemFontOfSize:3.2 weight:UIFontWeightMedium];
-	CGFloat requiredHeight = [self textHeightForText:text width:width - 5.0 font:minimumFont] + 5.0;
-	CGFloat height = MIN(MAX(baseHeight, requiredHeight), screenHeight - 24.0);
-	if (requiredHeight > height && width < MIN(screenWidth - 12.0, sourceWidth + 34.0)) {
-		width = MIN(screenWidth - 12.0, MAX(width, sourceWidth + 34.0));
-		requiredHeight = [self textHeightForText:text width:width - 5.0 font:minimumFont] + 5.0;
-		height = MIN(MAX(baseHeight, requiredHeight), screenHeight - 24.0);
-	}
-
-	CGRect preferred = CGRectMake(CGRectGetMinX(item.frame) - 2.0, CGRectGetMinY(item.frame) - 1.5, width, height);
-	preferred = [self clampedLabelFrame:preferred screenBounds:screenBounds];
-	if (![self frame:preferred intersectsOccupiedFrames:occupiedFrames]) {
-		return preferred;
-	}
-
-	CGFloat step = MAX(height + 2.0, 10.0);
-	for (NSUInteger attempt = 1; attempt <= 10; attempt++) {
-		CGFloat delta = step * attempt;
-		CGRect below = [self clampedLabelFrame:CGRectOffset(preferred, 0.0, delta) screenBounds:screenBounds];
-		if (![self frame:below intersectsOccupiedFrames:occupiedFrames]) {
-			return below;
-		}
-
-		CGRect above = [self clampedLabelFrame:CGRectOffset(preferred, 0.0, -delta) screenBounds:screenBounds];
-		if (![self frame:above intersectsOccupiedFrames:occupiedFrames]) {
-			return above;
-		}
-
-		CGRect right = [self clampedLabelFrame:CGRectOffset(preferred, width + 2.0, 0.0) screenBounds:screenBounds];
-		if (![self frame:right intersectsOccupiedFrames:occupiedFrames]) {
-			return right;
-		}
-
-		CGRect left = [self clampedLabelFrame:CGRectOffset(preferred, -width - 2.0, 0.0) screenBounds:screenBounds];
-		if (![self frame:left intersectsOccupiedFrames:occupiedFrames]) {
-			return left;
-		}
-	}
-
-	for (CGFloat y = 18.0; y <= screenHeight - height - 6.0; y += MAX(8.0, height + 2.0)) {
-		CGRect sameColumn = [self clampedLabelFrame:CGRectMake(CGRectGetMinX(preferred), y, width, height) screenBounds:screenBounds];
-		if (![self frame:sameColumn intersectsOccupiedFrames:occupiedFrames]) {
-			return sameColumn;
-		}
-
-		CGRect leftColumn = [self clampedLabelFrame:CGRectMake(6.0, y, width, height) screenBounds:screenBounds];
-		if (![self frame:leftColumn intersectsOccupiedFrames:occupiedFrames]) {
-			return leftColumn;
-		}
-
-		CGRect rightColumn = [self clampedLabelFrame:CGRectMake(screenWidth - width - 6.0, y, width, height) screenBounds:screenBounds];
-		if (![self frame:rightColumn intersectsOccupiedFrames:occupiedFrames]) {
-			return rightColumn;
-		}
-	}
-
-	return preferred;
+- (CGRect)labelFrameForItem:(BTTextItem *)item screenBounds:(CGRect)screenBounds {
+	return [self clampedLabelFrame:item.frame screenBounds:screenBounds];
 }
 
 - (CGRect)clampedLabelFrame:(CGRect)frame screenBounds:(CGRect)screenBounds {
@@ -735,20 +672,11 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 	return CGRectIntegral(CGRectMake(x, y, width, height));
 }
 
-- (BOOL)frame:(CGRect)frame intersectsOccupiedFrames:(NSArray<NSValue *> *)occupiedFrames {
-	for (NSValue *value in occupiedFrames) {
-		if (CGRectIntersectsRect(frame, value.CGRectValue)) {
-			return YES;
-		}
-	}
-	return NO;
-}
-
 - (UIFont *)fittingFontForText:(NSString *)text inSize:(CGSize)size sourceFrame:(CGRect)sourceFrame {
-	CGFloat maxFontSize = MAX(5.0, MIN(10.5, CGRectGetHeight(sourceFrame) * 0.52));
-	CGFloat minFontSize = 3.2;
-	CGFloat usableWidth = MAX(10.0, size.width - 5.0);
-	CGFloat usableHeight = MAX(6.0, size.height - 3.0);
+	CGFloat maxFontSize = MAX(3.0, MIN(10.5, CGRectGetHeight(sourceFrame) * 0.74));
+	CGFloat minFontSize = 1.6;
+	CGFloat usableWidth = MAX(4.0, size.width - 2.0);
+	CGFloat usableHeight = MAX(3.0, size.height - 1.0);
 
 	for (CGFloat fontSize = maxFontSize; fontSize >= minFontSize; fontSize -= 0.25) {
 		UIFont *font = [UIFont systemFontOfSize:fontSize weight:UIFontWeightMedium];
@@ -780,6 +708,8 @@ static NSArray<NSString *> *BTTargetBundleIdentifiers(void) {
 
 - (void)hideOverlay {
 	self.overlayWindow.hidden = YES;
+	self.translationsVisible = NO;
+	[self setBubbleTitle:@"EN" active:NO];
 }
 
 @end

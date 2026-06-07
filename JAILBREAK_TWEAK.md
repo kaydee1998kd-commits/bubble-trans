@@ -24,6 +24,8 @@ Use the `.deb` package from the GitHub Actions artifact or the `release/` folder
 Direct repository paths:
 
 ```text
+release/BubbleTrans-rootless-0.4.0.deb
+release/BubbleTrans-rootful-0.4.0.deb
 release/BubbleTrans-rootless-0.3.1.deb
 release/BubbleTrans-rootful-0.3.1.deb
 release/BubbleTrans-rootless-0.3.0.deb
@@ -45,8 +47,9 @@ killall SpringBoard
 
 ## Notes
 
-- The tweak sends recognized text to MyMemory for translation.
-- Version `0.3.1` keeps full translated phrases, dynamically shrinks each label font, and tries alternate positions to avoid overlap.
+- The tweak sends recognized text to Google Translate first, then falls back to MyMemory if needed.
+- Version `0.4.0` moves all scan/progress/clear states into the draggable `EN` bubble and idles the bubble dim after use.
+- Version `0.4.0` draws translated labels directly on the OCR text rectangles instead of using enlarged or shifted label boxes.
 - Inline labels are intentionally compact and may become very small when English is much longer than the original Chinese area.
 - It overlays OCR lines, not true private Xianyu text nodes, so scrolling the page after translation requires tapping `EN` again.
 - If Xianyu changes its bundle identifier, update `tweak/BubbleTrans.plist`.
